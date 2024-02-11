@@ -1,12 +1,14 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ERC404} from "./ERC404.sol";
 
-contract Poops is ERC404, Pausable, ReentrancyGuard {
+contract Poops is ERC404, ReentrancyGuard {
+    /// @dev Merkle Proof root
+    bytes32 public merkleRoot = 0xb26515f4981384eb34c45033c291362b3ae88b50dd250e8203faa2236c3d921a;
     /// @dev token uri for data location
     string public baseTokenURI;
     /// @dev contract start time stamp
@@ -28,7 +30,7 @@ contract Poops is ERC404, Pausable, ReentrancyGuard {
     
     function _mint(
         address to
-    ) internal override whenNotPaused {
+    ) internal override checkWhitelist {
         return super._mint(to);
     }
 
@@ -36,7 +38,7 @@ contract Poops is ERC404, Pausable, ReentrancyGuard {
         address from,
         address to,
         uint256 amount
-    ) internal override whenNotPaused checkWhitelist returns (bool){
+    ) internal override checkWhitelist returns (bool){
         return super._transfer(from, to, amount);
     }
 
@@ -44,8 +46,10 @@ contract Poops is ERC404, Pausable, ReentrancyGuard {
         baseTokenURI = _tokenURI;
     }
 
-    function addToInternalWhitelist(address wallet) external onlyOwner {
-        internalWhitelist[wallet] = true;
+    function addToInternalWhitelist(bytes32[] calldata _merkleProof) public view {
+        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        require(MerkleProof.verify(_merkleProof, merkleRoot, leaf), "failed to proof a wallet");
+        internalWhitelist[msg.sender] == true;
     }
 
     function setNameSymbol(
